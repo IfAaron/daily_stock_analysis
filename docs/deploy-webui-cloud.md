@@ -14,6 +14,7 @@
 - [如何确认 Docker 重建已生效](#如何确认-docker-重建已生效)
 - [访问不了？先检查这几项](#访问不了先检查这几项)
 - [可选：Nginx 反向代理（绑定域名 / 80 端口）](#可选nginx-反向代理绑定域名--80-端口)
+- [可选：Cloudflare Tunnel（无需公网 IP / 端口转发）](#可选cloudflare-tunnel无需公网-ip--端口转发)
 - [安全建议](#安全建议)
 
 ---
@@ -310,6 +311,28 @@ sudo systemctl reload nginx
 > **使用 Nginx 后的注意事项**：
 > - 如果你开启了 Web 登录认证（`ADMIN_AUTH_ENABLED=true`），建议在 `.env` 中把 `TRUST_X_FORWARDED_FOR=true` 一并打开，否则系统可能无法正确识别真实 IP。该选项适用于**单层可信反向代理**（Nginx → App）部署；如果使用多级代理或 CDN（CDN → Nginx → App），登录限流的 key 可能退化为边缘代理 IP 而非真实客户端 IP，需根据实际拓扑评估。
 > - 如需 HTTPS，可以用 [Certbot](https://certbot.eff.org/) 自动申请免费的 Let's Encrypt 证书。
+
+---
+
+## 可选：Cloudflare Tunnel（无需公网 IP / 端口转发）
+
+如果服务运行在家里电脑、内网主机或没有公网 IP 的机器上，可以使用 Cloudflare Tunnel 把 HTTPS 域名转发到本机 WebUI。
+
+该方式不需要路由器端口转发，推荐将本地 WebUI 保持为仅监听本机：
+
+```env
+WEBUI_HOST=127.0.0.1
+WEBUI_PORT=8000
+ADMIN_AUTH_ENABLED=true
+```
+
+Tunnel 的 Public Hostname 指向：
+
+```text
+https://stock.example.com -> http://127.0.0.1:8000
+```
+
+完整步骤见 [Cloudflare Tunnel 远程访问 WebUI 指南](cloudflare-tunnel-webui.md)。
 
 ---
 

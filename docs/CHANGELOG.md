@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - [新功能] Web 首页个股分析支持选择策略。
 - [新功能] 新增热点题材、事件驱动、成长质量和预期重估策略。
 - [新功能] Web 新增告警中心 MVP，支持现有三类告警规则的创建、列表、启停、删除、dry-run 测试和触发历史查看。
+- [文档] 新增 Cloudflare Tunnel 远程访问 WebUI 指南，补充域名接入、Tunnel、Access、WebUI 本地配置、验证与排障流程。
 
 ## [3.17.1] - 2026-05-16
 
