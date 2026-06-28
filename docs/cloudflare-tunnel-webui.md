@@ -303,6 +303,87 @@ uv run python main.py --serve-only
 Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/api/v1/auth/status
 ```
 
+### 使用 Docker Desktop 保持开机后自动恢复
+
+如果 WebUI 直接用 `python main.py --serve-only` 前台运行，Windows 重启后需要手动重新启动服务。已安装 Docker Desktop 时，可以把 WebUI/API 放到容器里运行，并依赖 Docker 的 `restart: unless-stopped` 在 Docker Desktop 启动后自动恢复。
+
+Cloudflare Tunnel 场景下仍建议只把宿主机端口绑定到本机回环地址，避免局域网直接访问 `8000`。可在仓库根目录创建本地 override 文件：
+
+```powershell
+mkdir local -Force
+notepad local\docker-compose.webui.yml
+```
+
+内容如下：
+
+```yaml
+services:
+  server:
+    image: daily-stock-analysis-local:webui
+    build: null
+    environment:
+      ENV_FILE: /app/data/runtime.env
+    ports: !override
+      - "127.0.0.1:${API_PORT:-8000}:${API_PORT:-8000}"
+```
+
+说明：
+
+- `local/` 已被 `.gitignore` 忽略，适合保存本机部署覆盖配置。
+- `ports: !override` 用于替换仓库默认的 `0.0.0.0:8000` 映射，只保留 `127.0.0.1:8000`。
+- `ENV_FILE=/app/data/runtime.env` 让 WebUI 设置页和认证模块读写持久化数据卷中的运行时配置，避免把宿主机 `.env` 单文件挂载进容器导致原子保存失败。
+- `daily-stock-analysis-local:webui` 是从当前仓库源码构建的本地镜像，避免外部镜像直接读取本机 `.env` 和数据卷。
+
+首次运行前，把当前配置复制到持久化运行时配置文件：
+
+```powershell
+mkdir data -Force
+if (-not (Test-Path data\runtime.env)) {
+  Copy-Item .env data\runtime.env
+}
+```
+
+然后构建本地镜像并启动 WebUI 容器：
+
+```powershell
+docker build --progress=plain -t daily-stock-analysis-local:webui -f docker/Dockerfile .
+docker compose -f .\docker\docker-compose.yml -f .\local\docker-compose.webui.yml up -d server
+```
+
+启动后验证：
+
+```powershell
+docker ps --filter "name=stock-server"
+docker port stock-server
+docker inspect -f "restart={{.HostConfig.RestartPolicy.Name}}" stock-server
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/api/health
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/api/v1/auth/status
+Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8000/usage
+```
+
+期望结果：
+
+- `docker ps` 显示 `stock-server` 为 `healthy`。
+- `docker port stock-server` 显示 `8000/tcp -> 127.0.0.1:8000`。
+- `docker inspect` 显示 `restart=unless-stopped`。
+- `/api/v1/auth/status` 中 `authEnabled` 为 `true`，且已设置密码时 `passwordSet` 为 `true`。
+- `https://stock.example.com/usage` 可通过 Cloudflare Tunnel 正常访问。
+
+如需查看日志或重启服务：
+
+```powershell
+docker compose -f .\docker\docker-compose.yml -f .\local\docker-compose.webui.yml logs -f server
+docker compose -f .\docker\docker-compose.yml -f .\local\docker-compose.webui.yml restart server
+```
+
+最后在 Docker Desktop 设置中开启：
+
+```text
+Start Docker Desktop when you sign in
+```
+
+容器已配置 `restart: unless-stopped`，但它依赖 Docker Desktop 先随 Windows 登录启动。若 Docker Desktop 未自动启动，电脑重启后容器也不会恢复。
+
 ## 验证访问
 
 ### 1. 本地验证
